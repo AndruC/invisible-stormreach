@@ -212,7 +212,7 @@ const City3D = (typeof THREE === "undefined") ? null : (() => {
           vec3 ccol = mix(vec3(.035,.045,.055), vec3(.55,.5,.52), uDawn) + uFlash*vec3(.55,.6,.8)*(.4+cl);
           col = mix(col, ccol, c*.92);
           float bh = max(dot(d, normalize(uBeamTop - cameraPosition)), 0.);
-          col += vec3(1.,.72,.38) * (pow(bh, 260.)*.9 + pow(bh, 40.)*.18) * (.35 + c) * (1.-uDawn*.8);
+          col += vec3(1.,.72,.38) * (pow(bh, 260.)*.4 + pow(bh, 40.)*.07) * (.35 + c) * (1.-uDawn*.8);
           // stars in clear patches
           vec2 sp = floor(d.xz/(h+.05)*180.);
           float st = step(.9965, h21(sp)) * (1.-c) * smoothstep(.15,.5,h) * (1.-uRain) * (1.-uDawn);
@@ -516,10 +516,10 @@ const City3D = (typeof THREE === "undefined") ? null : (() => {
       fragmentShader: GLSL_NOISE + `varying vec2 vUv; uniform float uTime,uDawn; void main(){
         float edge = pow(sin(vUv.x*3.14159),2.); float fade = pow(1.-vUv.y, 1.6) * smoothstep(0., .02, vUv.y) * (1. - smoothstep(.2, .55, vUv.y));
         float shimmer = .8 + .2*vn(vec2(vUv.x*3., vUv.y*12. - uTime*2.));
-        gl_FragColor = vec4(vec3(1.,.8,.45)*edge*fade*shimmer*(1.-uDawn)*.85, 1.); }` });
+        gl_FragColor = vec4(vec3(1.,.8,.45)*edge*fade*shimmer*(1.-uDawn)*.4, 1.); }` });
     const beam = new THREE.Mesh(new THREE.CylinderGeometry(2.2, .35, 260, 24, 1, true), bm); beam.position.y = 130; beamGroup.add(beam);
     const core = new THREE.Mesh(new THREE.CylinderGeometry(.35, .12, 260, 12, 1, true), bm); core.position.y = 130; beamGroup.add(core);
-    const glow = new THREE.Mesh(new THREE.SphereGeometry(.45, 16, 12), new THREE.MeshBasicMaterial({ color: 0xffd98a })); glow.position.y = .3; beamGroup.add(glow);
+    const glow = new THREE.Mesh(new THREE.SphereGeometry(.45, 16, 12), new THREE.MeshBasicMaterial({ color: 0xb89a62 })); glow.scale.setScalar(.7); glow.position.y = .3; beamGroup.add(glow);
     g.add(beamGroup);
     emperorLight = new THREE.PointLight(0xffc773, 2.6, 130, 1.5); emperorLight.position.set(0, 19, 5); g.add(emperorLight);
     g.rotation.y = .35; // facing the open sea
@@ -545,13 +545,13 @@ const City3D = (typeof THREE === "undefined") ? null : (() => {
     g.add(mesh(new THREE.CylinderGeometry(1.3, 2.1, 11, 10), mat, 0, 5.5, 0));
     g.add(mesh(new THREE.CylinderGeometry(1.7, 1.4, 1, 10), mat, 0, 11.4, 0));
     const crystal = mesh(new THREE.OctahedronGeometry(.6, 0), new THREE.MeshBasicMaterial({ color: 0xd9c9a0 }), 0, 12.9, 0); crystal.scale.y = 1.5; g.add(crystal); hooks.crystal = crystal;
-    lighthouseBeam = new THREE.Group(); lighthouseBeam.position.set(0, 13.2, 0);
+    lighthouseBeam = new THREE.Group(); lighthouseBeam.position.set(0, 12.9, 0); // at the crystal's heart
     const lb = new THREE.ShaderMaterial({ transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, uniforms: { uDawn: U.dawn, uClip: { value: 1e4 } },
       vertexShader: `varying vec2 vUv; varying float vAlong; void main(){ vUv=uv; vAlong = 110. - position.y; gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.); }`,
       fragmentShader: `varying vec2 vUv; varying float vAlong; uniform float uDawn, uClip; void main(){ if (vAlong > uClip) discard; float e = pow(sin(vUv.x*3.14159),3.); float stop = smoothstep(uClip, uClip - 3., vAlong); // the statue takes the light
-        gl_FragColor = vec4(vec3(1.,.95,.82)*e*pow(vUv.y,2.2)*smoothstep(0.,.25,1.-vUv.y)*.16*(1.-uDawn)*stop, 1.); }` });
+        gl_FragColor = vec4(vec3(1.,.95,.82)*e*pow(vUv.y,2.2)*smoothstep(0.,.012,1.-vUv.y)*.16*(1.-uDawn)*stop, 1.); }` });
     hooks.lhClip = lb.uniforms.uClip;
-    const cone = new THREE.Mesh(new THREE.CylinderGeometry(.15, 6, 220, 24, 1, true), lb); cone.rotation.z = Math.PI / 2 - .03; cone.position.x = 110;
+    const cone = new THREE.Mesh(new THREE.CylinderGeometry(.15, 6, 220, 24, 1, true), lb); const tilt = .03; cone.rotation.z = Math.PI / 2 - tilt; cone.position.set(110 * Math.cos(tilt), -110 * Math.sin(tilt), 0); // narrow end exactly at the crystal, leaning a little toward the sea
     lighthouseBeam.add(cone); g.add(lighthouseBeam);
     g.scale.setScalar(.75); lighthouseGroup = g;
     placeAt(g, 126, 830, 0, "lighthouse");
@@ -1592,7 +1592,7 @@ const City3D = (typeof THREE === "undefined") ? null : (() => {
     const lhA = t * .35; waterMat.uniforms.uLhDir.value.set(Math.cos(-lhA), Math.sin(-lhA));
     { // where the sweep meets the Emperor, the beam ends: a ray against the statue's silhouette at the lamp's height
       const lp = lighthouseGroup.position, e = hooks.emperorAxis, dx = Math.cos(lhA), dz = -Math.sin(lhA), fx = lp.x - e.x, fz = lp.z - e.z;
-      const yl = (lp.y + 13.2 * .75 - e.y) / 1.9, R = 1.9 * (yl < 2.8 ? 5.4 : yl < 15.3 ? 3.6 - 2 * (yl - 2.8) / 12.5 : yl < 19.5 ? 2.6 : 0);
+      const yl = (lp.y + 12.9 * .75 - e.y) / 1.9, R = 1.9 * (yl < 2.8 ? 5.4 : yl < 15.3 ? 3.6 - 2 * (yl - 2.8) / 12.5 : yl < 19.5 ? 2.6 : 0);
       const bq = fx * dx + fz * dz, disc = bq * bq - (fx * fx + fz * fz - R * R); const hit = R > 0 && disc > 0 ? -bq - Math.sqrt(disc) : -1;
       const d = hit > 0 ? hit : 1e4; hooks.lhClip.value = d / .75; waterMat.uniforms.uLhClip.value = d; }
     if (airship) { airship.position.y = 21 + Math.sin(t * .6) * .35; airship.rotation.y = Math.sin(t * .2) * .15; airship.userData.ring.rotation.x = t * 1.6; }
