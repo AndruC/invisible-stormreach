@@ -1,0 +1,8 @@
+# build output (GitHub Actions builds the site)
+dist/
+__pycache__/
+# the sourcebook and text extracted from it stay local
+docs/
+# local tooling and an early single-file prototype
+.claude/
+/invisible-stormreach.html
