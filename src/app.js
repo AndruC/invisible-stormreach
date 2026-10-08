@@ -187,7 +187,7 @@ function panelWidth() { const p = $("#panel"); return p.getBoundingClientRect().
 function setPanel(open) {
   panelOpen = open; document.body.classList.toggle("panel-closed", !open);
   $("#panel-toggle").setAttribute("aria-expanded", String(open));
-  $("#panel-toggle").textContent = open ? (mqMobile.matches ? "Show the city" : "Hide the account") : "Show the account";
+  $("#panel-toggle").textContent = open ? (mqMobile.matches ? "Show the city" : "Hide the story") : "Show the story";
   syncInert();
   requestAnimationFrame(updateOffset);
 }
