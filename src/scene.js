@@ -1017,7 +1017,7 @@ const City3D = (typeof THREE === "undefined") ? null : (() => {
     g = new THREE.Group(); g.add(mesh(new THREE.BoxGeometry(4, 1.6, 3), stdMat(0x5a5e5a, { flatShading: true }), 0, .6, 0)); g.add(mesh(new THREE.BoxGeometry(1.4, .9, .3), stdMat(0x1a1e20), 0, .5, 1.52));
     put(g, "crypt-of-the-guard", .4); lit(g, 0, .5, 1.7, [.5, .75, 1], .35); for (let i = 0; i < 6; i++) lit(g, rr(-2, 2), .2, rr(1.6, 3), [.4, .7, .9], .1, 3);
     // the Old Catacombs: the top of a fallen tower, a sealed door, a drummer
-    g = new THREE.Group(); const ft = mesh(new THREE.CylinderGeometry(2, 2.2, 5, 10), stone(), 0, 1, 0); ft.rotation.x = .35; g.add(ft); for (let k = 0; k < 8; k++) { const a = k / 8 * 6.283; g.add(mesh(new THREE.BoxGeometry(.6, .7, .6), stone(), Math.cos(a) * 2, 3.6, Math.sin(a) * 2 - .9)); }
+    g = new THREE.Group(); const ft = mesh(new THREE.CylinderGeometry(2, 2.2, 5, 10), stone(), 0, 1, 0); ft.rotation.x = .35; g.add(ft); for (let k = 0; k < 8; k++) { const a = k / 8 * 6.283; const m = mesh(new THREE.BoxGeometry(.6, .7, .6), stone(), Math.cos(a) * 1.9, 2.5 + .3, Math.sin(a) * 1.9); m.rotation.y = -a; ft.add(m); } // the crenellations ride the tower's tilt
     g.add(mesh(new THREE.BoxGeometry(1.2, 1.6, .3), stdMat(0x262a2c), 0, .8, 2.1)); put(g, "old-catacombs", .2); lit(g, 0, .8, 2.3, [.45, .7, 1], .4); lit(g, 1.6, .5, 2.6, [1, .65, .3], .25);
     // Hammersmith's Inn: a long hall with a chimney
     g = new THREE.Group(); house(g, 6.5, 2.2, 3, 0x5a4a3a, 0x3a3230); g.add(mesh(new THREE.CylinderGeometry(.35, .45, 2.4, 8), stdMat(0x3d3732), 2.4, 3.4, 0));
@@ -1091,8 +1091,20 @@ const City3D = (typeof THREE === "undefined") ? null : (() => {
     for (let i = 0; i < 3; i++) { const p = mesh(new THREE.CylinderGeometry(.55, .55, 7, 12), stdMat(0x3c3f3e, { metalness: .5, roughness: .6 })); p.rotation.z = Math.PI / 2; p.rotation.y = .9 + i * .1; placeAt(p, 118 + i * 5, 648 + i * 4, .8, "waterworks"); }
     for (let i = 0; i < 26; i++) { const [x, z] = toWorld(112 + rr(-6, 10), 652 + rr(-6, 8)); smoke.push([x, 1.2, z, .32, .36, .38, rr(.9, 1.5), rnd(), 1]); }
     // the Tents of Rushemé and their fires
-    for (let i = 0; i < 9; i++) { const yurt = new THREE.Group(); const r = rr(2.2, 3.2); yurt.add(mesh(new THREE.CylinderGeometry(r, r, 2, 10), stdMat(0x7a6648, { flatShading: true }), 0, 1, 0)); yurt.add(mesh(new THREE.ConeGeometry(r * 1.08, 2.5, 10), stdMat(0x5e4c36, { flatShading: true }), 0, 3.25, 0)); placeAt(yurt, 170 + rr(-50, 50), 112 + rr(-36, 36), -.1, "tents-of-rusheme"); }
-    for (let i = 0; i < 4; i++) { const [x, z] = toWorld(170 + rr(-40, 40), 112 + rr(-28, 28)); const y = heightAt(x, z); for (let k = 0; k < 30; k++) fire.push([x + rr(-.4, .4), y + .2, z + rr(-.4, .4), 1, rr(.35, .6), .1, rr(.5, .9), rnd(), 2]); }
+    const yurts = [];
+    for (let i = 0; i < 9; i++) { const yurt = new THREE.Group(); const r = rr(2.2, 3.2); yurt.add(mesh(new THREE.CylinderGeometry(r, r, 2, 10), stdMat(0x7a6648, { flatShading: true }), 0, 1, 0)); yurt.add(mesh(new THREE.ConeGeometry(r * 1.08, 2.5, 10), stdMat(0x5e4c36, { flatShading: true }), 0, 3.25, 0)); placeAt(yurt, 170 + rr(-50, 50), 112 + rr(-36, 36), -.1, "tents-of-rusheme"); yurts.push([yurt.position.x, yurt.position.z, r]); }
+    // campfires in the open between the tents: clear of every tent and giant, on level ground, ringed with stones
+    { const giants = [[240, 140], [150, 92], [200, 70], [170, 112]].map(([a, b]) => toWorld(a, b)); const fires = []; const ringM = stdMat(0x3a3632, { flatShading: true });
+      for (let t = 0; t < 400 && fires.length < 4; t++) {
+        const [x, z] = toWorld(170 + rr(-55, 55), 112 + rr(-40, 40)); const y = heightAt(x, z);
+        if (yurts.some(([yx, yz, r]) => Math.hypot(x - yx, z - yz) < r + 2.2) || giants.some(([gx, gz]) => Math.hypot(x - gx, z - gz) < 4.5) || fires.some(([fx, fz]) => Math.hypot(x - fx, z - fz) < 5)) continue;
+        if (Math.abs(heightAt(x + 1, z) - y) + Math.abs(heightAt(x, z + 1) - y) > .35 || y < .5) continue;
+        const [cmx, cmy] = toChart(x, z); if (sample(masks.human, cmx, cmy) > .02 || sample(masks.stone, cmx, cmy) > .02 || excluded(cmx, cmy)) continue;
+        fires.push([x, z]); exclusions.push([cmx, cmy, 9]); // later builders (halls, shacks, ruins) keep their distance
+        for (let k = 0; k < 24; k++) fire.push([x + rr(-.3, .3), y + .15 + rr(0, .5), z + rr(-.3, .3), 1, rr(.35, .55), .08, rr(.35, .7), rnd(), 2]);
+        for (let k = 0; k < 7; k++) { const a = k / 7 * 6.283; const st = mesh(new THREE.DodecahedronGeometry(rr(.13, .2), 0), ringM, x + Math.cos(a) * .6, y + .06, z + Math.sin(a) * .6); scene.add(st); }
+        for (let k = 0; k < 8; k++) smoke.push([x + rr(-.15, .15), y + .8, z + rr(-.15, .15), .2, .2, .21, rr(.8, 1.3), rnd(), 1]);
+      } }
     const gm = stdMat(0x6b5444, { flatShading: true });
     const giantAt = (mx, my, rot, sit) => { const gg = new THREE.Group(); const h = sit ? 4 : 6.2;
       gg.add(mesh(new THREE.BoxGeometry(2.2, h * .55, 1.4), gm, 0, h * .55, 0)); gg.add(mesh(new THREE.BoxGeometry(1, h * .45, 1.2), gm, -.6, h * .22, sit ? .8 : 0)); gg.add(mesh(new THREE.BoxGeometry(1, h * .45, 1.2), gm, .6, h * .22, sit ? .8 : 0));
