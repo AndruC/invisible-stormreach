@@ -6,3 +6,5 @@ docs/
 # local tooling and an early single-file prototype
 .claude/
 /invisible-stormreach.html
+# working notes (review ledger)
+.vdd/

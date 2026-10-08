@@ -902,9 +902,10 @@ const City3D = (typeof THREE === "undefined") ? null : (() => {
     // 1. warehouses along the harbor's quays, turned to the water
     const box = new THREE.BoxGeometry(1, 1, 1); box.translate(0, .5, 0);
     const gable = new THREE.CylinderGeometry(.5, .5, 1, 3, 1); gable.rotateZ(Math.PI / 2); gable.rotateX(-Math.PI / 2); gable.scale(1, .7, 1.15); gable.translate(0, .25 * .7, 0);
-    const WN = lowQuality ? 120 : 260; const wh = new THREE.InstancedMesh(box, stdMat(0xffffff, { flatShading: true, roughness: .95 }), WN), whr = new THREE.InstancedMesh(gable, stdMat(0xffffff, { flatShading: true }), WN);
+    const WN = lowQuality ? 420 : 1100; const wh = new THREE.InstancedMesh(box, stdMat(0xffffff, { flatShading: true, roughness: .95 }), WN), whr = new THREE.InstancedMesh(gable, stdMat(0xffffff, { flatShading: true }), WN);
     let nw = 0;
-    for (let t = 0; t < 9000 && nw < WN; t++) {
+    const HARBOR_N = lowQuality ? 120 : 260;
+    for (let t = 0; t < 9000 && nw < HARBOR_N; t++) {
       const mx = rr(60, 470), my = rr(560, 760); if (nearestDistrict(mx, my) !== "Harbor") continue;
       const inl = sample(masks.inland, mx, my); if (inl < .45 || inl > .8 || !free(mx, my, 4)) continue;
       const [x, z] = toWorld(mx, my); const [, ang] = roadNear(mx, my); const L = rr(1.8, 3.4), D = rr(.9, 1.3), Hh = rr(.8, 1.3); const yl = footGround(x, z, L * .5);
@@ -913,6 +914,36 @@ const City3D = (typeof THREE === "undefined") ? null : (() => {
       if (rnd() < .5) lights.push([x, yl + Hh * .4, z, 1, .62, .26, .22, rnd(), 0]);
       nw++;
     }
+    // 1b. the same timber halls and lodging houses packed into the open ground of the other wards, turned to their streets
+    { const taken = new Set(), cell = (mx, my) => ((mx / 7) | 0) + "," + ((my / 7) | 0);
+      const clearOfPlaces = (mx, my) => { for (const k in PLACES) { const p = PLACES[k]; if ((p.x - mx) ** 2 + (p.y - my) ** 2 < 14 * 14) return false; } return true; };
+      for (let t = 0; t < 60000 && nw < WN; t++) {
+        const mx = rr(40, 880), my = rr(60, 1150); const dn = nearestDistrict(mx, my); if (dn === "Harbor" || dn === "Coasthold") continue;
+        if (sample(masks.city, mx, my) < .6 || sample(masks.road, mx, my) > .25 || !free(mx, my, 3) || !clearOfPlaces(mx, my)) continue;
+        const k = cell(mx, my); if (taken.has(k)) continue;
+        const [x, z] = toWorld(mx, my); const [rd, ang] = roadNear(mx, my); const L = rr(1.3, rd < 20 ? 2.8 : 2.2), D = rr(.8, 1.2), Hh = rr(.7, 1.5); const yl = footGround(x, z, L * .5);
+        if (heightAt(x, z) - yl > 1.6) continue; // not on a terrace edge
+        taken.add(k);
+        q.setFromEuler(new THREE.Euler(0, -ang + (rnd() < .65 ? 0 : Math.PI / 2) + rr(-.06, .06), 0)); sc.set(L, Hh + (heightAt(x, z) - yl), D); pp.set(x, yl - .05, z); m4.compose(pp, q, sc); wh.setMatrixAt(nw, m4); wh.setColorAt(nw, c.setHex([0x6e5e48, 0x7a6a52, 0x5e5446, 0x847050, 0x6a5440][(rnd() * 5) | 0]).multiplyScalar(rr(.9, 1.08)));
+        sc.set(L * 1.04, D * 1.1, D * 1.1); pp.set(x, yl - .05 + Hh + (heightAt(x, z) - yl), z); m4.compose(pp, q, sc); whr.setMatrixAt(nw, m4); whr.setColorAt(nw, c.setHex([0x4a3426, 0x5a3a28, 0x3e3a36, 0x55301f][(rnd() * 4) | 0]));
+        if (rnd() < .4) lights.push([x, yl + Hh * .45, z, 1, .62, .26, .2, rnd(), 0]);
+        nw++;
+      }
+      // and up on the broken tops of the giant masonry, wherever a footprint finds level stone
+      for (let t = 0; t < 40000 && nw < WN; t++) {
+        const mx = rr(40, 880), my = rr(60, 1150); if (nearestDistrict(mx, my) === "Coasthold" || excluded(mx, my) || inSilverwall(mx, my) || !clearOfPlaces(mx, my)) continue;
+        const k = cell(mx, my); if (taken.has(k)) continue;
+        const [x, z] = toWorld(mx, my); const [, ang] = roadNear(mx, my); const L = rr(1.2, 2.4), D = rr(.8, 1.1), Hh = rr(.6, 1.2);
+        const a0 = -ang + (rnd() < .5 ? 0 : Math.PI / 2), ca = Math.cos(a0), sa = Math.sin(a0);
+        const hs = []; for (const [u, v] of [[0, 0], [.5, .5], [.5, -.5], [-.5, .5], [-.5, -.5]]) { const wx = x + (u * L * ca + v * D * sa), wz = z + (-u * L * sa + v * D * ca); const [cx, cy] = toChart(wx, wz); hs.push(surfaceAt(cx, cy)); }
+        const lo = Math.min(...hs), hi = Math.max(...hs); if (lo < -50 || hi - lo > .35 || lo < heightAt(x, z) + 1) continue; // whole footprint on one level of stone
+        taken.add(k);
+        q.setFromEuler(new THREE.Euler(0, a0, 0)); sc.set(L, Hh + (hi - lo), D); pp.set(x, lo - .05, z); m4.compose(pp, q, sc); wh.setMatrixAt(nw, m4); wh.setColorAt(nw, c.setHex([0x6e5e48, 0x7a6a52, 0x5e5446, 0x847050, 0x6a5440][(rnd() * 5) | 0]).multiplyScalar(rr(.9, 1.08)));
+        sc.set(L * 1.04, D * 1.1, D * 1.1); pp.set(x, hi - .05 + Hh, z); m4.compose(pp, q, sc); whr.setMatrixAt(nw, m4); whr.setColorAt(nw, c.setHex([0x4a3426, 0x5a3a28, 0x3e3a36, 0x55301f][(rnd() * 4) | 0]));
+        if (rnd() < .4) lights.push([x, lo + Hh * .45, z, 1, .62, .26, .2, rnd(), 0]);
+        nw++;
+      }
+      hooks.halls = nw; }
     // 2. crates and barrels stacked on the quays and piers
     const CN = lowQuality ? 300 : 700; const crates = new THREE.InstancedMesh(new THREE.BoxGeometry(.28, .28, .28).translate(0, .14, 0), stdMat(0xffffff, { flatShading: true }), CN); let nc = 0;
     for (let t = 0; t < 12000 && nc < CN; t++) {
@@ -1640,6 +1671,6 @@ const City3D = (typeof THREE === "undefined") ? null : (() => {
     probeScreen(px, py) { if (!DEBUG) return null; const r = renderer.domElement.getBoundingClientRect(); const rc = new THREE.Raycaster(); rc.setFromCamera(new THREE.Vector2((px - r.left) / r.width * 2 - 1, -((py - r.top) / r.height) * 2 + 1), camera);
       return rc.intersectObjects(scene.children, true).slice(0, 3).map(h => { const o = h.object; return { t: o.type, c: o.material.color && o.material.color.getHexString(), y: +h.point.y.toFixed(2), d: +h.distance.toFixed(1) }; }); },
     pickScreen(px, py, noOcc) { if (!DEBUG) return null; const r = renderer.domElement.getBoundingClientRect(); const rc = new THREE.Raycaster(); rc.setFromCamera(new THREE.Vector2((px - r.left) / r.width * 2 - 1, -((py - r.top) / r.height) * 2 + 1), camera); return pickAt(rc, noOcc); },
-    stats() { let objs = 0, meshes = 0, pts = 0; scene.traverse(o => { objs++; if (o.isMesh) meshes++; if (o.isPoints) pts++; }); return { objs, meshes, pts, calls: renderer.info.render.calls, tris: renderer.info.render.triangles, programs: renderer.info.programs.length, geos: renderer.info.memory.geometries }; }
+    stats() { let objs = 0, meshes = 0, pts = 0; scene.traverse(o => { objs++; if (o.isMesh) meshes++; if (o.isPoints) pts++; }); return { halls: hooks.halls, objs, meshes, pts, calls: renderer.info.render.calls, tris: renderer.info.render.triangles, programs: renderer.info.programs.length, geos: renderer.info.memory.geometries }; }
   };
 })();

@@ -23,15 +23,11 @@ This writes:
 | `src/content.js` | the prose: 50 vignettes, 10 night frames, epilogue |
 | `src/data.js` | places (chart coordinates and camera hints), nights, per-night weather, street voices, visions, chart shapes |
 | `src/scene.js` | `City3D`: terrain from the chart shapes, sea, sky, landmarks, weather, the undercity shaft, camera flights, lantern overlay |
-| `src/app.js` | reading order, hash routing, panel, index, drift, 2D chart (also the fallback without WebGL) |
+| `src/app.js` | reading order, hash routing and history, panel, contents, wander, read tracking, 2D chart (also the fallback without WebGL) |
 | `src/audio.js` | synthesized storm: rain, swell, wind, thunder, the Emperor's hum |
 | `src/styles.css`, `src/template.html` | the page |
 
 Chart coordinates follow the sourcebook map (908 × 1199, west at the top). `toWorld` maps them to the 3D scene at 0.2 units per chart unit.
-
-## Reviews
-
-The adversarial review ledger is in `.vdd/` (spec and every finding with its resolution).
 
 ## Fan content
 

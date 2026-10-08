@@ -109,11 +109,18 @@ function setTitle() {
   const where = !started ? "" : mode === "index" ? "Contents" : s.type === "frame" ? `Night ${ROMAN[s.n]}: ${name}` : name;
   document.title = where ? `${where} · Invisible Stormreach` : "Invisible Stormreach";
 }
+// a story counts as read once the reader has stayed with it (8 s with the tab visible) or scrolled to its end, not merely on opening
+const READ_MS = 8000;
+function markRead(id) { if (!id || seen.has(id)) return; seen.add(id); saveSeen(); ledger(); paintPins(); }
+function readWatch(id) {
+  clearInterval(readWatch.t); readWatch.id = id; if (!id || seen.has(id)) return;
+  let stayed = 0; readWatch.t = setInterval(() => { if (readWatch.id !== id) return clearInterval(readWatch.t); if (document.visibilityState === "visible" && started && mode === "nights") stayed += 500; if (stayed >= READ_MS) { clearInterval(readWatch.t); markRead(id); } }, 500);
+}
 function render(fly = true) {
-  if (mode === "index") { renderIndex(); paintPins(); syncWorld(fly); reader.scrollTop = 0; setTitle(); return; }
+  if (mode === "index") { readWatch(null); renderIndex(); paintPins(); syncWorld(fly); reader.scrollTop = 0; setTitle(); return; }
   const s = SEQ[pos];
   reader.innerHTML = s.type === "city" ? renderCity(s) : renderNight(s); setTitle();
-  if (s.type === "city") { seen.add(s.id); saveSeen(); }
+  readWatch(s.type === "city" ? s.id : null);
   ledger(); paintPins(); wire(); syncWorld(fly);
   reader.scrollTop = 0;
 }
@@ -267,12 +274,13 @@ function boot() {
   $("#m-nights").onclick = () => { if (!started) { begin(); return; } if (mode === "nights") return; driftNote = ""; setMode("nights"); writeHash(hashFor(SEQ[pos])); render(); };
   $("#m-index").onclick = () => { if (!started) { begin("wander"); return; } if (mode === "index") return; driftNote = ""; writeHash("index"); showIndex(); };
   $("#m-drift").onclick = () => { if (!started) begin("none"); drift(); };
+  reader.addEventListener("scroll", () => { if (readWatch.id && reader.scrollHeight > reader.clientHeight + 40 && reader.scrollTop + reader.clientHeight >= reader.scrollHeight - 24) markRead(readWatch.id); }, { passive: true });
   $("#b-chart").onclick = () => { $("#chart").hidden ? openChart() : closeChart(); };
   $("#chart .close").onclick = () => closeChart(true);
   $("#b-sound").onclick = () => { const on = Storm.toggle(); $("#b-sound").setAttribute("aria-pressed", String(on)); $("#b-sound").querySelector("span").textContent = on ? "Sound on" : "Sound off"; };
   $("#panel-toggle").onclick = () => setPanel(!panelOpen);
   $("#begin").onclick = () => begin();
-  $("#wander").onclick = () => begin("wander");
+  $("#wander").onclick = () => { begin("none"); drift(); };
   $("#intro-sound").onclick = () => { $("#b-sound").click(); $("#intro-sound").textContent = Storm.on ? "Silence the storm" : "Turn on the storm"; };
   addEventListener("keydown", e => {
     if (e.target.closest("input,textarea")) return;
