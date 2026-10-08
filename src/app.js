@@ -107,7 +107,7 @@ function wire() {
 function setTitle() {
   const s = SEQ[pos], h = reader.querySelector("h2"), name = h ? h.textContent.trim() : "";
   const where = !started ? "" : mode === "index" ? "Contents" : s.type === "frame" ? `Night ${ROMAN[s.n]}: ${name}` : name;
-  document.title = where ? `${where} · Invisible Stormreach` : "Invisible Stormreach";
+  document.title = where ? `Invisible Stormreach · ${where}` : "Invisible Stormreach";
 }
 // a story counts as read once the reader has stayed with it (8 s with the tab visible) or scrolled to its end, not merely on opening
 const READ_MS = 8000;

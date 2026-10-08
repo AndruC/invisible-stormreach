@@ -18,7 +18,7 @@ const INN_PICK = INNS[Math.floor(Math.random()*INNS.length)];
 
 /* cam: optional view hint {az: degrees around the place (0 = from the sea side, +z), el: elevation degrees, d: distance} */
 const PLACES = {
-  "harbor":{n:"The Harbor",d:"harbor",x:262,y:686,cam:{az:165,el:20,d:30,h:2}},
+  "harbor":{n:"The Harbor",d:"harbor",x:262,y:686,cam:{az:345,el:20,d:30,h:2}},
   "harbor-docks":{n:"The docks",d:"harbor",x:330,y:770,cam:{az:200,el:16,d:20,h:1}},
   "fishers-folly":{n:"Fisher's Folly",d:"harbor",x:238,y:792,cam:{az:25,el:18,d:16}},
   "emperor":{n:"The Emperor",d:"harbor",x:72,y:776,cam:{az:-35,el:9,d:40,h:26}},

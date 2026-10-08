@@ -897,12 +897,14 @@ const City3D = (typeof THREE === "undefined") ? null : (() => {
   /* ---------- the busy wards: warehouses on the quays, stalls in the markets, a dwarven quarter ---------- */
   function buildDensity() {
     const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3(), pp = new THREE.Vector3(), c = new THREE.Color();
-    const free = (mx, my, pad = 0) => sample(masks.land, mx, my) > .75 && sample(masks.stone, mx, my) < .05 && sample(masks.human, mx, my) < .05 && !excluded(mx, my) && !inSilverwall(mx, my) && (pad <= 0 || (sample(masks.stone, mx + pad, my) < .3 && sample(masks.stone, mx - pad, my) < .3 && sample(masks.stone, mx, my + pad) < .3 && sample(masks.stone, mx, my - pad) < .3));
+    // open ground: no masonry that was actually built (the chart's stone includes tiers dropped to keep places clear), no human block
+    const bare = (mx, my) => surfaceAt(mx, my) < -50;
+    const free = (mx, my, pad = 0) => sample(masks.land, mx, my) > .75 && bare(mx, my) && sample(masks.human, mx, my) < .05 && !excluded(mx, my) && !inSilverwall(mx, my) && (pad <= 0 || (bare(mx + pad, my) && bare(mx - pad, my) && bare(mx, my + pad) && bare(mx, my - pad)));
     const lights = [];
     // 1. warehouses along the harbor's quays, turned to the water
     const box = new THREE.BoxGeometry(1, 1, 1); box.translate(0, .5, 0);
     const gable = new THREE.CylinderGeometry(.5, .5, 1, 3, 1); gable.rotateZ(Math.PI / 2); gable.rotateX(-Math.PI / 2); gable.scale(1, .7, 1.15); gable.translate(0, .25 * .7, 0);
-    const WN = lowQuality ? 420 : 1100; const wh = new THREE.InstancedMesh(box, stdMat(0xffffff, { flatShading: true, roughness: .95 }), WN), whr = new THREE.InstancedMesh(gable, stdMat(0xffffff, { flatShading: true }), WN);
+    const WN = lowQuality ? 600 : 1800; const wh = new THREE.InstancedMesh(box, stdMat(0xffffff, { flatShading: true, roughness: .95 }), WN), whr = new THREE.InstancedMesh(gable, stdMat(0xffffff, { flatShading: true }), WN);
     let nw = 0;
     const HARBOR_N = lowQuality ? 120 : 260;
     for (let t = 0; t < 9000 && nw < HARBOR_N; t++) {
@@ -1150,11 +1152,11 @@ const City3D = (typeof THREE === "undefined") ? null : (() => {
     titanGroup.add(mesh(new THREE.CylinderGeometry(1.2, 1.8, 7, 7, 3), wick, 0, 3.5, 0)); titanGroup.add(mesh(new THREE.SphereGeometry(1.1, 7, 5), wick, 0, 8, 0));
     const a1 = mesh(new THREE.CylinderGeometry(.35, .35, 5, 5), wick, -2.1, 7.5, 0); a1.rotation.z = .7; titanGroup.add(a1); const a2 = mesh(new THREE.CylinderGeometry(.35, .35, 5, 5), wick, 2.1, 7.5, 0); a2.rotation.z = -.7; titanGroup.add(a2);
     placeAt(titanGroup, 420, 968, 0, "titan-cliffs");
-    const tf = []; const [tx, tz] = toWorld(420, 968); const ty = heightAt(tx, tz); for (let k = 0; k < 420; k++) { const yy = rr(0, 9); tf.push([tx + rr(-1.6, 1.6) * (1 - yy / 14), ty + yy, tz + rr(-1.2, 1.2), 1, rr(.3, .65), .08, rr(.8, 1.8), rnd(), 2]); }
+    const tf = []; const [tx, tz] = toWorld(420, 968); const ty = heightAt(tx, tz); for (let k = 0; k < 260; k++) { const yy = rr(0, 9); tf.push([tx + rr(-1.6, 1.6) * (1 - yy / 14), ty + yy, tz + rr(-1.2, 1.2), .95, rr(.22, .45), .05, rr(.5, 1.15) * (1 - yy / 16), rnd(), 2]); }
     hooks.titanFire = makePoints(tf, "light");
     const crowd = []; for (let k = 0; k < 320; k++) { const a = rr(0, 6.28), r = rr(3, 9); crowd.push([tx + Math.cos(a) * r, ty + .5, tz + Math.sin(a) * r, 1, rr(.25, .75), .12, rr(.12, .2), rnd(), 4]); }
     hooks.titanCrowd = makePoints(crowd, "light");
-    titanLight = new THREE.PointLight(0xff7a2a, 0, 150, 1.3); titanLight.position.set(tx, ty + 6, tz); scene.add(titanLight);
+    titanLight = new THREE.PointLight(0xff7a2a, 0, 38, 2); titanLight.position.set(tx, ty + 6, tz); scene.add(titanLight);
     makePoints(smoke, "smoke"); makePoints(fire, "light"); makePoints(lights, "light");
   }
 
@@ -1566,9 +1568,8 @@ const City3D = (typeof THREE === "undefined") ? null : (() => {
     hooks.bonfires.material.uniforms.uGate.value = cur.bonfires; hooks.bonfires.visible = cur.bonfires > .02;
     hooks.titanFire.material.uniforms.uGate.value = cur.titan; hooks.titanFire.visible = cur.titan > .02;
     hooks.titanCrowd.material.uniforms.uGate.value = cur.titan; hooks.titanCrowd.visible = cur.titan > .02;
-    emperorMat.emissive.setRGB(.2 * cur.titan, .07 * cur.titan, .015 * cur.titan);
     U.glowAmt.value = (1 - cur.dawn * .8) * (1 + cur.bonfires * .3);
-    titanLight.intensity = cur.titan * (2.6 + Math.sin(t * 13) * .4 + Math.sin(t * 7.3) * .3);
+    titanLight.intensity = cur.titan * (1.4 + Math.sin(t * 13) * .18 + Math.sin(t * 7.3) * .12);
     titanGroup.visible = cur.titan > .02 || target.titan > 0 || cur.titanBuilt;
     // fog and light by weather and dawn
     U.fogColor.value.copy(FOG_NIGHT).lerp(FOG_DAWN, cur.dawn); scene.fog.color.copy(U.fogColor.value);
@@ -1670,6 +1671,9 @@ const City3D = (typeof THREE === "undefined") ? null : (() => {
       gaps.sort((a, b) => a - b); return { checked: n, floating: bad, worst: +worst.toFixed(2), noStoneBelow: none, p95: +(gaps[Math.floor(gaps.length * .95)] || 0).toFixed(2) }; },
     probeScreen(px, py) { if (!DEBUG) return null; const r = renderer.domElement.getBoundingClientRect(); const rc = new THREE.Raycaster(); rc.setFromCamera(new THREE.Vector2((px - r.left) / r.width * 2 - 1, -((py - r.top) / r.height) * 2 + 1), camera);
       return rc.intersectObjects(scene.children, true).slice(0, 3).map(h => { const o = h.object; return { t: o.type, c: o.material.color && o.material.color.getHexString(), y: +h.point.y.toFixed(2), d: +h.distance.toFixed(1) }; }); },
+    coverage(x0, y0, x1, y1, st = 8) { if (!DEBUG) return null; let out = ""; for (let my = y0; my <= y1; my += st) { for (let mx = x0; mx <= x1; mx += st) {
+        const land = sample(masks.land, mx, my), city = sample(masks.city, mx, my), stone = sample(masks.stone, mx, my), human = sample(masks.human, mx, my), road = sample(masks.road, mx, my), top = surfaceAt(mx, my);
+        out += land < .75 ? "~" : excluded(mx, my) ? "x" : top > -50 ? "S" : human > .05 ? "h" : stone > .05 ? "s" : road > .25 ? "=" : city < .6 ? "," : "."; } out += "\n"; } return out; },
     pickScreen(px, py, noOcc) { if (!DEBUG) return null; const r = renderer.domElement.getBoundingClientRect(); const rc = new THREE.Raycaster(); rc.setFromCamera(new THREE.Vector2((px - r.left) / r.width * 2 - 1, -((py - r.top) / r.height) * 2 + 1), camera); return pickAt(rc, noOcc); },
     stats() { let objs = 0, meshes = 0, pts = 0; scene.traverse(o => { objs++; if (o.isMesh) meshes++; if (o.isPoints) pts++; }); return { halls: hooks.halls, objs, meshes, pts, calls: renderer.info.render.calls, tris: renderer.info.render.triangles, programs: renderer.info.programs.length, geos: renderer.info.memory.geometries }; }
   };
