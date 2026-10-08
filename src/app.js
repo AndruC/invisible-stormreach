@@ -59,7 +59,7 @@ function steps() {
   const label = s.type === "city" ? `Night ${ROMAN[s.n]} · ${NIGHTS[s.n].indexOf(s.id) + 1} of 5` : (s.type === "frame" ? `Night ${ROMAN[s.n]}` : "Dawn");
   const nxt = SEQ[pos + 1];
   const nextLabel = !nxt ? "The end" : nxt.type === "frame" ? "Next night" : nxt.type === "epilogue" ? "Before dawn" : (s.type === "frame" ? "Into the city" : "Next");
-  return `<div class="steps"><button class="prev" type="button" ${pos === 0 ? "disabled" : ""} aria-label="Previous">←</button><span class="pos">${label}</span><button class="next" type="button" ${!nxt ? "disabled" : ""}>${nextLabel} <span aria-hidden="true">→</span></button></div>`;
+  return `<div class="steps"><button class="prev" type="button" ${pos === 0 ? "disabled" : ""} aria-label="Previous">←</button><span class="pos">${label}</span><button class="next" type="button"${!nxt ? ' data-end=""' : ""}>${nextLabel} <span aria-hidden="true">→</span></button></div>`;
 }
 function renderNight(s) {
   const f = s.type === "epilogue" ? EPILOGUE : FRAMES[s.n];
@@ -99,7 +99,7 @@ function wire() {
   const bar = $("#steps"); bar.innerHTML = steps(); bar.hidden = false;
   const p = bar.querySelector(".prev"), n = bar.querySelector(".next");
   if (p) p.onclick = () => { driftNote = ""; goTo(pos - 1, true, "prev"); };
-  if (n) n.onclick = () => { driftNote = ""; goTo(pos + 1, true, "next"); };
+  if (n) n.onclick = () => { driftNote = ""; if (n.hasAttribute("data-end")) backToStart(); else goTo(pos + 1, true, "next"); };
   reader.querySelectorAll("[data-go]").forEach(b => b.onclick = () => { driftNote = ""; goTo(seqIndex(b.dataset.go)); });
   reader.querySelectorAll(".where").forEach(b => b.onclick = () => { if (has3D) { City3D.flyToPlace(b.dataset.place); if (mqMobile.matches) setPanel(false); } else openChart(b.dataset.place); });
 }
@@ -238,12 +238,22 @@ function showIndex() { clearTimeout(nightCard.t); $("#nightcard").hidden = true;
 function begin(where) {
   lastNight = -1;
   started = true; document.body.classList.add("started"); setTitle();
-  $("#intro").classList.add("gone"); setTimeout(() => $("#intro").hidden = true, 900);
+  $("#intro").classList.add("gone"); clearTimeout(begin.t); begin.t = setTimeout(() => $("#intro").hidden = true, 900);
   if (has3D) City3D.stopIntro();
   setPanel(true);
   syncInert();
   if (where === "wander") { writeHash("index", true); showIndex(); }
   else if (where !== "none") { setMode("nights"); goTo(0, "replace"); }
+}
+
+// "The end" closes the book: back to the opening screen, as a new history entry (Back returns to dawn)
+function backToStart(push = true) {
+  readWatch(null); closeChart(false); $("#vision").hidden = true; clearTimeout(nightCard.t); $("#nightcard").hidden = true;
+  if (push) { try { history.pushState(null, "", location.pathname + location.search); } catch (e) { } }
+  started = false; document.body.classList.remove("started"); clearTimeout(begin.t);
+  const intro = $("#intro"); intro.hidden = false; void intro.offsetWidth; intro.classList.remove("gone");
+  driftNote = ""; setMode("nights"); pos = 0; lastNight = -1; render(false); setTitle();
+  if (has3D) City3D.startIntro(); syncInert(); $("#begin").focus({ preventScroll: true });
 }
 
 /* ---------- boot ---------- */
@@ -290,6 +300,7 @@ function boot() {
     const to = e.key === "ArrowRight" ? pos + 1 : e.key === "ArrowLeft" ? pos - 1 : -1; if (to < 0 || to >= SEQ.length) return; driftNote = ""; goTo(to);
   });
   addEventListener("hashchange", () => {
+    if (!location.hash && started) { backToStart(false); return; } // Forward onto the opening screen
     if (location.hash === "#index") { driftNote = ""; if (!started) { begin("wander"); return; } if (chartModal()) closeChart(mode === "index"); if (mode !== "index") showIndex(); return; }
     const i = fromHash(); if (i < 0) return; driftNote = ""; if (!started) { begin("none"); setMode("nights"); goTo(i, true); return; } const moving = i !== pos || mode !== "nights"; if (chartModal()) closeChart(!moving); if (moving) { setMode("nights"); goTo(i, false); } });
   addEventListener("resize", () => { setPanel(panelOpen); });
