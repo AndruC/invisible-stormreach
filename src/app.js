@@ -251,7 +251,7 @@ function backToStart(push = true) {
   readWatch(null); closeChart(false); $("#vision").hidden = true; clearTimeout(nightCard.t); $("#nightcard").hidden = true;
   if (push) { try { history.pushState(null, "", location.pathname + location.search); } catch (e) { } }
   started = false; document.body.classList.remove("started"); clearTimeout(begin.t);
-  const intro = $("#intro"); intro.hidden = false; void intro.offsetWidth; intro.classList.remove("gone");
+  document.documentElement.classList.remove("deep"); const intro = $("#intro"); intro.hidden = false; void intro.offsetWidth; intro.classList.remove("gone");
   driftNote = ""; setMode("nights"); pos = 0; lastNight = -1; render(false); setTitle();
   if (has3D) City3D.startIntro(); syncInert(); $("#begin").focus({ preventScroll: true });
 }
@@ -308,7 +308,7 @@ function boot() {
   const h = fromHash();
   if (location.hash === "#index") { pos = 0; started = true; document.body.classList.add("started"); $("#intro").hidden = true; setPanel(true); setMode("index"); render(); }
   else if (h >= 0) { pos = h; started = true; document.body.classList.add("started"); $("#intro").hidden = true; setPanel(true); render(); }
-  else { pos = 0; render(false); if (has3D) City3D.startIntro(); syncInert(); setTimeout(() => $("#begin").focus({ preventScroll: true }), 50); }
+  else { document.documentElement.classList.remove("deep"); pos = 0; render(false); if (has3D) City3D.startIntro(); syncInert(); setTimeout(() => $("#begin").focus({ preventScroll: true }), 50); }
   ledger();
 }
 boot();

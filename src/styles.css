@@ -251,3 +251,4 @@ body.no3d #b-chart{display:none}
 .fineprint{font-family:var(--mono);font-size:.62rem;line-height:1.6;letter-spacing:.03em;color:var(--muted);opacity:.8;max-width:36rem;margin:1.4rem 0 0}
 .fineprint a{color:inherit;text-decoration:underline}
 .intro .fineprint{margin-top:1.2rem}
+.deep #intro{display:none}
