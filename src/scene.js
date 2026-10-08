@@ -895,6 +895,28 @@ const City3D = (typeof THREE === "undefined") ? null : (() => {
 
 
   /* ---------- the busy wards: warehouses on the quays, stalls in the markets, a dwarven quarter ---------- */
+  // fires go down last, in open air: a spot is open when no masonry, block, hall, house, shack or stall stands over it
+  function openSpotNear(mx0, my0, maxR = 40) {
+    const solid = []; scene.traverse(o => { if (o.isInstancedMesh && o.count > 0 && !(o.material && o.material.transparent)) solid.push(o); });
+    const rc = new THREE.Raycaster(), down = new THREE.Vector3(0, -1, 0), from = new THREE.Vector3();
+    const landBoxes = pickables.map(o => new THREE.Box3().setFromObject(o)).filter(b => !b.isEmpty() && b.max.x - b.min.x < 40);
+    const clearAt = (x, z, y) => { from.set(x, y + 9, z); rc.set(from, down); rc.far = 9.6; return !rc.intersectObjects(solid, false).some(h => h.point.y > y + .12); };
+    const open = (mx, my) => { if (sample(masks.land, mx, my) < .8 || sample(masks.human, mx, my) > .02) return null; const [x, z] = toWorld(mx, my); const y = heightAt(x, z); if (y < .4) return null;
+      for (const [dx, dy] of [[0, 0], [5, 0], [-5, 0], [0, 5], [0, -5]]) { if (surfaceAt(mx + dx, my + dy) > -50) return null; }
+      if (Math.abs(heightAt(x + 1.2, z) - y) + Math.abs(heightAt(x, z + 1.2) - y) > .4) return null;
+      for (const b of landBoxes) if (b.distanceToPoint(new THREE.Vector3(x, y + .5, z)) < 1.5) return null;
+      for (const [dx, dz] of [[0, 0], [.9, 0], [-.9, 0], [0, .9], [0, -.9]]) if (!clearAt(x + dx, z + dz, y)) return null;
+      return [x, y, z]; };
+    for (let r = 0; r <= maxR; r += 3) for (let k = 0, n = Math.max(1, Math.round(r * 1.2)); k < n; k++) { const a = k / n * 6.283; const s = open(mx0 + Math.cos(a) * r, my0 + Math.sin(a) * r); if (s) return s; }
+    return null;
+  }
+  function placeOpenFires() {
+    const bf = [], ring = stdMat(0x2e2a26, { flatShading: true });
+    for (const [mx, my] of hooks.bonfireAnchors || []) { const s = openSpotNear(mx, my); if (!s) continue; const [x, y, z] = s;
+      for (let k = 0; k < 40; k++) bf.push([x + rr(-.45, .45), y + .1 + rr(0, .6), z + rr(-.45, .45), 1, rr(.3, .55), .08, rr(.55, 1), rnd(), 2]);
+      for (let k = 0; k < 9; k++) { const a = k / 9 * 6.283; scene.add(mesh(new THREE.DodecahedronGeometry(rr(.15, .24), 0), ring, x + Math.cos(a) * .85, y + .07, z + Math.sin(a) * .85)); } }
+    hooks.bonfires = makePoints(bf, "light");
+  }
   function buildDensity() {
     const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3(), pp = new THREE.Vector3(), c = new THREE.Color();
     // open ground: no masonry that was actually built (the chart's stone includes tiers dropped to keep places clear), no human block
@@ -1153,8 +1175,7 @@ const City3D = (typeof THREE === "undefined") ? null : (() => {
     const off = []; for (let i = 0; i < 520; i++) { const [x, z] = toWorld(rr(100, 360), rr(712, 900)); if (sample(masks.land, ...toChart(x, z)) > .3) continue; off.push([x, .3, z, 1, .78, .45, .3, rnd(), 4]); }
     hooks.offerings = makePoints(off, "light");
     // bonfires for Shacklebreak
-    const bf = []; [[343, 330], [350, 500], [470, 820], [260, 640], [560, 260], [200, 240], [600, 450]].forEach(([mx, my]) => { const [x, z] = toWorld(mx, my); const y = heightAt(x, z); for (let k = 0; k < 40; k++) bf.push([x + rr(-.5, .5), y + .1, z + rr(-.5, .5), 1, rr(.3, .55), .08, rr(.6, 1.1), rnd(), 2]); });
-    hooks.bonfires = makePoints(bf, "light");
+    hooks.bonfireAnchors = [[343, 330], [350, 500], [470, 820], [260, 640], [560, 260], [200, 240], [600, 450]]; // placed by placeOpenFires once the city stands
     // the Burning Titan, wicker on the eastern cliffs
     titanGroup = new THREE.Group();
     const wc = document.createElement("canvas"); wc.width = wc.height = 64; const wg = wc.getContext("2d"); wg.fillStyle = "#2a1a10"; wg.fillRect(0, 0, 64, 64); wg.strokeStyle = "#7a5631"; wg.lineWidth = 5;
@@ -1512,7 +1533,7 @@ const City3D = (typeof THREE === "undefined") ? null : (() => {
     seed = 1337; sampleRoads(); buildMasks(); exclusions.push([176, 612, 56]);
     buildSky(); buildWater(); buildTerrain();
     buildEmperor(); buildLighthouse(); buildTalon(); buildSpire(); buildPalace(); buildBazaar(); buildSilverwall(); buildDelera();
-    buildFloaters(); buildRuins(); buildDistrictLife(); buildHeroes(); buildGiantCity(); buildRigging(); buildDensity(); buildDistant(); buildDepths(); buildKraken(); buildAtmosphere(); buildHouses(); buildWalkers(); buildJungle(); buildRain();
+    buildFloaters(); buildRuins(); buildDistrictLife(); buildHeroes(); buildGiantCity(); buildRigging(); buildDensity(); buildDistant(); buildDepths(); buildKraken(); buildAtmosphere(); buildHouses(); buildWalkers(); buildJungle(); buildRain(); placeOpenFires();
     const [bx, bz] = toWorld(72, 776); waterMat.uniforms.uBeam.value.set(bx, 60, bz); skyMat.uniforms.uBeamTop.value.set(bx + 1.2, 170, bz + 6);
     const [lx, lz] = toWorld(126, 830); waterMat.uniforms.uLh.value.set(lx, 0, lz);
     if (!lowQuality && THREE.EffectComposer && THREE.UnrealBloomPass) {
