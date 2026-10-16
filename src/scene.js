@@ -1159,7 +1159,8 @@ const City3D = (typeof THREE === "undefined") ? null : (() => {
     [[157, 740, 4, 70], [202, 734, 4, 58], [248, 745, 4, 80], [296, 736, 4, 62], [338, 743, 40, 4]].forEach(([mx, my, w, d]) => { const [x, z] = toWorld(mx, my); scene.add(mesh(new THREE.BoxGeometry(w * SCALE, .3, d * SCALE), pierMat, x, .3, z)); });
     // ships
     const hullG = new THREE.BoxGeometry(1, 1, 1); const hp = hullG.attributes.position; for (let i = 0; i < hp.count; i++) { if (hp.getY(i) < 0) { hp.setX(i, hp.getX(i) * .7); hp.setZ(i, hp.getZ(i) * .35); } if (hp.getZ(i) > .4 && hp.getY(i) > 0) hp.setX(i, hp.getX(i) * .6); } hullG.computeVertexNormals();
-    const shipSpots = [[185, 767, 1.6], [225, 770, -1.5], [270, 790, 1.5], [312, 768, -1.6], [190, 840, .4], [300, 850, 2.1], [342, 902, .8], [120, 900, 1.2], [260, 1010, 2.6], [483, 1187, .3]];
+    // the first four lie in the slips along the piers, bow to the quay (hull length is local z; rotation 0 runs along chart y); the rest ride at anchor
+    const shipSpots = [[185, 764, .03], [234, 772, 3.12], [267, 777, -.04], [315, 778, 3.16], [190, 840, .4], [300, 850, 2.1], [342, 902, .8], [120, 900, 1.2], [260, 1010, 2.6], [483, 1187, .3]];
     shipSpots.forEach(([mx, my, rot], i) => {
       const g = new THREE.Group(); const L = rr(3, 4.6);
       const hull = mesh(hullG, stdMat(i === 6 ? 0x5a2a20 : 0x3a2c22, { flatShading: true })); hull.scale.set(1.2, .9, L); hull.position.y = .25; g.add(hull);
@@ -1704,6 +1705,8 @@ const City3D = (typeof THREE === "undefined") ? null : (() => {
       gaps.sort((a, b) => a - b); return { checked: n, floating: bad, worst: +worst.toFixed(2), noStoneBelow: none, p95: +(gaps[Math.floor(gaps.length * .95)] || 0).toFixed(2) }; },
     probeScreen(px, py) { if (!DEBUG) return null; const r = renderer.domElement.getBoundingClientRect(); const rc = new THREE.Raycaster(); rc.setFromCamera(new THREE.Vector2((px - r.left) / r.width * 2 - 1, -((py - r.top) / r.height) * 2 + 1), camera);
       return rc.intersectObjects(scene.children, true).slice(0, 3).map(h => { const o = h.object; return { t: o.type, c: o.material.color && o.material.color.getHexString(), y: +h.point.y.toFixed(2), d: +h.distance.toFixed(1) }; }); },
+    look(pos, tgt) { if (DEBUG) flyTo(new THREE.Vector3(...pos), new THREE.Vector3(...tgt), .3); },
+    depth(mx, my) { return DEBUG ? +heightChart(mx, my).toFixed(2) : null; },
     coverage(x0, y0, x1, y1, st = 8) { if (!DEBUG) return null; let out = ""; for (let my = y0; my <= y1; my += st) { for (let mx = x0; mx <= x1; mx += st) {
         const land = sample(masks.land, mx, my), city = sample(masks.city, mx, my), stone = sample(masks.stone, mx, my), human = sample(masks.human, mx, my), road = sample(masks.road, mx, my), top = surfaceAt(mx, my);
         out += land < .75 ? "~" : excluded(mx, my) ? "x" : top > -50 ? "S" : human > .05 ? "h" : stone > .05 ? "s" : road > .25 ? "=" : city < .6 ? "," : "."; } out += "\n"; } return out; },
