@@ -59,7 +59,7 @@ const PLACES = {
   "temple-row":{n:"Temple Row",d:"temple",x:497,y:137,cam:{az:-55,el:28,d:16}},
   "twilight-streets":{n:"The Temple district at dusk",d:"temple",x:540,y:262,cam:{az:20,el:22,d:20}},
   "grindstone":{n:"Grindstone",d:"south",x:200,y:236,cam:{az:20,el:30,d:22}},
-  "black-freighter":{n:"The Black Freighter",d:"south",x:150,y:196,cam:{az:315,el:22,d:12,h:.6}},
+  "black-freighter":{n:"The Black Freighter",d:"south",x:166,y:211,cam:{az:315,el:22,d:12,h:.6}},
   "tents-of-rusheme":{n:"The Tents of Rushemé",d:"south",x:170,y:112,cam:{az:40,el:24,d:26}},
   "southwatch-edge":{n:"The edge of Southwatch",d:"south",x:58,y:340,cam:{look:"south"}},
   "travelers-inn":{n:"An inn (tonight, "+INN_PICK[2]+")",d:"inn",x:INN_PICK[0],y:INN_PICK[1],cam:{az:30,el:24,d:12}},

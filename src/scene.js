@@ -60,6 +60,18 @@ const City3D = (typeof THREE === "undefined") ? null : (() => {
   }
   function ringPath(a) { let d = "M" + a[0] + "," + a[1]; for (let i = 2; i < a.length; i += 2) d += "L" + a[i] + "," + a[i + 1]; return d + "Z"; }
   function planPath(list) { return new Path2D(list.map(rings => rings.map(ringPath).join("")).join("")); }
+  // the river's two arms, traced along the chart's water; the chart breaks them wherever a bridge or a label crosses, so the water is stroked through as one channel: [x, y, width]
+  const RIVERS = [
+    [[700, 20, 26], [688, 90, 28], [660, 140, 20], [622, 118, 12], [588, 100, 10], [548, 70, 9], [505, 56, 8], [470, 54, 8], [440, 70, 8], [405, 95, 8], [372, 122, 9], [340, 145, 10], [300, 168, 8], [262, 200, 7], [232, 212, 7], [205, 197, 10], [180, 200, 13], [152, 222, 12], [122, 240, 8], [92, 254, 7], [68, 266, 8], [62, 290, 6], [72, 316, 6], [48, 342, 7], [38, 372, 8], [44, 410, 8], [50, 445, 7], [40, 485, 9], [34, 518, 12], [60, 536, 14], [100, 543, 14], [130, 556, 13], [152, 580, 14], [160, 615, 9], [158, 648, 9], [152, 676, 12], [150, 710, 14]],
+    [[688, 90, 28], [684, 180, 16], [676, 240, 10], [664, 300, 7], [650, 345, 6], [655, 390, 6], [670, 422, 6], [698, 446, 8], [722, 468, 9], [722, 505, 12], [700, 540, 12], [740, 555, 13], [790, 565, 14], [822, 600, 16], [835, 650, 16], [858, 700, 18]]
+  ];
+  function strokeRivers(g) {
+    g.strokeStyle = "#000"; g.lineCap = "round"; g.lineJoin = "round";
+    for (const r of RIVERS) for (let i = 0; i < r.length - 1; i++) { // a smooth curve through the midpoints, each piece at its own width
+      const [ax, ay] = i ? [(r[i - 1][0] + r[i][0]) / 2, (r[i - 1][1] + r[i][1]) / 2] : r[0], [bx, by] = i < r.length - 2 ? [(r[i][0] + r[i + 1][0]) / 2, (r[i][1] + r[i + 1][1]) / 2] : r[i + 1];
+      g.lineWidth = (r[i][2] + r[i + 1][2]) / 2; g.beginPath(); g.moveTo(ax, ay); g.quadraticCurveTo(r[i][0], r[i][1], bx, by); g.stroke();
+    }
+  }
   function buildMasks() {
     glowCanvas = document.createElement("canvas"); glowCanvas.width = MW; glowCanvas.height = MH;
     glowTex = new THREE.CanvasTexture(glowCanvas); glowTex.flipY = false; glowTex.minFilter = THREE.LinearFilter; glowTex.magFilter = THREE.LinearFilter;
@@ -67,8 +79,9 @@ const City3D = (typeof THREE === "undefined") ? null : (() => {
     masks.land = raster(g => {
       g.fillStyle = "#fff"; g.fillRect(0, 0, 908, 1199); g.fillStyle = "#000";
       g.fill(planPath(PLAN.water), "evenodd");
+      strokeRivers(g);
     }, 2.2);
-    masks.inland = raster(g => { g.fillStyle = "#fff"; g.fillRect(0, 0, 908, 1199); g.fillStyle = "#000"; g.fill(planPath(PLAN.water), "evenodd"); }, 26);
+    masks.inland = raster(g => { g.fillStyle = "#fff"; g.fillRect(0, 0, 908, 1199); g.fillStyle = "#000"; g.fill(planPath(PLAN.water), "evenodd"); strokeRivers(g); }, 26);
     masks.city = raster(g => { g.fillStyle = "#fff"; g.fill(new Path2D(ringPath(PLAN.city))); }, 6);
     masks.stone = raster(g => { g.fillStyle = "#fff"; g.fill(planPath(PLAN.stone.filter(t => t[0] === 1).map(t => t.slice(1))), "evenodd"); }, 0);
     masks.human = raster(g => { g.fillStyle = "#fff"; PLAN.human.forEach(r => g.fill(new Path2D(ringPath(r)))); }, 0);
@@ -100,11 +113,11 @@ const City3D = (typeof THREE === "undefined") ? null : (() => {
     const step = 1.75, q = u / step, f = q - Math.floor(q);
     return (Math.floor(q) + smooth(.8, 1, f)) * step;
   }
-  // the Southwatch river under the Black Freighter, from its mooring out to the bay: [distance, position along it]
-  function river(mx, my) { const ax = 176, ay = 170, bx = 60, by = 286, vx = bx - ax, vy = by - ay; const t = Math.max(0, Math.min(1, ((mx - ax) * vx + (my - ay) * vy) / (vx * vx + vy * vy))); return [Math.hypot(mx - ax - vx * t, my - ay - vy * t), t]; }
-  const RIVER_PTS = []; for (let i = 0; i <= 24; i++) for (const o of [-22, 0, 22]) { const t = i / 24; RIVER_PTS.push([176 - 116 * t + o * .707, 170 + 116 * t + o * .707]); }
+  // how far a chart point is from the river's banks (negative in the water)
+  function riverGap(mx, my) { let best = 1e9; for (const r of RIVERS) for (let i = 0; i < r.length - 1; i++) { const [ax, ay, aw] = r[i], [bx, by, bw] = r[i + 1], vx = bx - ax, vy = by - ay; const t = Math.max(0, Math.min(1, ((mx - ax) * vx + (my - ay) * vy) / (vx * vx + vy * vy))); best = Math.min(best, Math.hypot(mx - ax - vx * t, my - ay - vy * t) - (aw + (bw - aw) * t) / 2); } return best; }
+  const RIVER_PTS = []; for (const r of RIVERS) for (let i = 0; i < r.length - 1; i++) for (let k = 0; k < 6; k++) RIVER_PTS.push([r[i][0] + (r[i + 1][0] - r[i][0]) * k / 6, r[i][1] + (r[i + 1][1] - r[i][1]) * k / 6]);
   // a footprint that touches the river or spans it
-  const nearRiver = pts => pts.some(([x, y]) => river(x, y)[0] < 32) || RIVER_PTS.some(([x, y]) => pointIn(pts, x, y));
+  const nearRiver = pts => pts.some(([x, y]) => riverGap(x, y) < 1.5) || RIVER_PTS.some(([x, y]) => pointIn(pts, x, y));
   const offSilverwall = (mx, my) => smooth(975, 1015, my) * smooth(425, 455, mx) * smooth(615, 590, mx);
   function heightChart(mx, my) {
     let land = sample(masks.land, mx, my);
@@ -128,8 +141,8 @@ const City3D = (typeof THREE === "undefined") ? null : (() => {
     // far ranges beyond the chart (inland is up/left on the chart)
     const out = Math.max(0, -my - 60) + Math.max(0, mx - 1100) * .6 + Math.max(0, -mx - 260) * .18;
     h += Math.min(46, out * .05 * (0.6 + fbm(mx * .004, my * .004, 3))) * smooth(.4, .8, land);
-    // the Southwatch river: a channel from the Freighter's mooring out to the bay
-    { const [rd, t] = river(mx, my); const k = smooth(30, 16, rd) * smooth(0, .06, t); if (k > 0) h = h + (-3.4 - h) * k; }
+    // the river: a bed below the water and banks that slope up to the city, not sheer cuts through the terraces
+    { const gap = riverGap(mx, my); if (gap < 40) { const bed = .4 - 3.8 * smooth(.5, -3, gap); h += (bed - h) * smooth(40, 1, gap); } }
     return h;
   }
   const heightAt = (x, z) => { const [mx, my] = toChart(x, z); return heightChart(mx, my); };
@@ -341,7 +354,7 @@ const City3D = (typeof THREE === "undefined") ? null : (() => {
 
   /* ---------- city fabric ---------- */
   const exclusions = [];
-  function excluded(mx, my) { if (river(mx, my)[0] < 30 || offSilverwall(mx, my) > .2) return true; for (const [ex, ey, r] of exclusions) if ((mx - ex) ** 2 + (my - ey) ** 2 < r * r) return true; return false; }
+  function excluded(mx, my) { if (riverGap(mx, my) < 2 || offSilverwall(mx, my) > .2) return true; for (const [ex, ey, r] of exclusions) if ((mx - ex) ** 2 + (my - ey) ** 2 < r * r) return true; return false; }
   function buildHouses() {
     const N = lowQuality ? 3200 : 6500;
     const box = new THREE.BoxGeometry(1, 1, 1); box.translate(0, .5, 0);
@@ -1137,7 +1150,7 @@ const City3D = (typeof THREE === "undefined") ? null : (() => {
     lights.push((() => { const [x, z] = toWorld(240, 140); return [x + 1.4, heightAt(x, z) + 6.6, z, 1, .75, .4, .5, .2, 0]; })());
     // the Black Freighter, moored in the river
     const fr = new THREE.Group(); const hull = mesh(new THREE.BoxGeometry(5, 1.2, 1.8), stdMat(0x24503e, { flatShading: true, roughness: .5 })); fr.add(hull); fr.add(mesh(new THREE.BoxGeometry(3, 1, 1.4), stdMat(0x2f2620), .3, 1.1, 0));
-    const [fx, fz] = toWorld(150, 196); fr.position.set(fx, .35, fz); fr.rotation.y = Math.PI / 4; scene.add(fr); fr.traverse(o => { if (o.isMesh) o.userData.place = "black-freighter"; }); pickables.push(fr);
+    const [fx, fz] = toWorld(166, 211); fr.position.set(fx, .35, fz); fr.rotation.y = .67; scene.add(fr); fr.traverse(o => { if (o.isMesh) o.userData.place = "black-freighter"; }); pickables.push(fr);
     for (let i = 0; i < 8; i++) lights.push([fx + rr(-2, 2), 1.6, fz + rr(-.8, .8), 1, .7, .3, .2, rnd(), 0]);
     // Blackbriar, up the coast: a dark field and one lit manor
     { const briarG = new THREE.IcosahedronGeometry(1, 0); const thorn = new THREE.ConeGeometry(.12, .7, 4);
@@ -1706,6 +1719,15 @@ const City3D = (typeof THREE === "undefined") ? null : (() => {
     probeScreen(px, py) { if (!DEBUG) return null; const r = renderer.domElement.getBoundingClientRect(); const rc = new THREE.Raycaster(); rc.setFromCamera(new THREE.Vector2((px - r.left) / r.width * 2 - 1, -((py - r.top) / r.height) * 2 + 1), camera);
       return rc.intersectObjects(scene.children, true).slice(0, 3).map(h => { const o = h.object; return { t: o.type, c: o.material.color && o.material.color.getHexString(), y: +h.point.y.toFixed(2), d: +h.distance.toFixed(1) }; }); },
     look(pos, tgt) { if (DEBUG) flyTo(new THREE.Vector3(...pos), new THREE.Vector3(...tgt), .3); },
+    floatAll(maxPer = 3000) { if (!DEBUG) return null; // instances whose underside sits well above both the terrain and the giants' stone
+      const rc = new THREE.Raycaster(), m = new THREE.Matrix4(), bb = new THREE.Box3(), out = {}; const stone = hooks.giantStone ? [hooks.giantStone] : [];
+      scene.traverse(o => { if (!o.isInstancedMesh) return; if (!o.geometry.boundingBox) o.geometry.computeBoundingBox(); const key = o.name || o.geometry.type + ":" + o.count; let n = 0, bad = 0; const ex = [];
+        for (let i = 0; i < Math.min(o.count, maxPer); i++) { o.getMatrixAt(i, m); bb.copy(o.geometry.boundingBox).applyMatrix4(m); if (bb.max.y - bb.min.y < .001) continue; n++;
+          const cx = (bb.min.x + bb.max.x) / 2, cz = (bb.min.z + bb.max.z) / 2; let g = Math.max(heightAt(cx, cz), 0);
+          rc.set(new THREE.Vector3(cx, bb.min.y + .3, cz), new THREE.Vector3(0, -1, 0)); const h = rc.intersectObjects(stone, false)[0]; if (h) g = Math.max(g, h.point.y);
+          if (bb.min.y - g > .6) { bad++; if (ex.length < 4) ex.push(toChart(cx, cz).map(v => Math.round(v))); } }
+        if (n) out[key] = { n, bad, ex }; });
+      return out; },
     depth(mx, my) { return DEBUG ? +heightChart(mx, my).toFixed(2) : null; },
     coverage(x0, y0, x1, y1, st = 8) { if (!DEBUG) return null; let out = ""; for (let my = y0; my <= y1; my += st) { for (let mx = x0; mx <= x1; mx += st) {
         const land = sample(masks.land, mx, my), city = sample(masks.city, mx, my), stone = sample(masks.stone, mx, my), human = sample(masks.human, mx, my), road = sample(masks.road, mx, my), top = surfaceAt(mx, my);
