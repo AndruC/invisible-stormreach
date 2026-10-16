@@ -159,6 +159,8 @@ body.no3d.started .chart{padding-right:calc(var(--panel-w) + 16px)}
 .hint{font-family:var(--mono);font-size:.72rem;letter-spacing:.06em;color:var(--muted);margin-top:1.8rem}
 .hint .link{text-decoration:underline;text-underline-offset:3px;color:var(--ink-2)}
 .hint .link:hover{color:var(--lamp)}
+.hint .link{margin-top:.5rem}
+.hint .link + .link{margin-left:1.2rem}
 
 /* phones: the account is a sheet from below */
 @media (max-width:860px){

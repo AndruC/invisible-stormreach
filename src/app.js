@@ -292,6 +292,13 @@ function boot() {
   $("#begin").onclick = () => begin();
   $("#wander").onclick = () => { begin("none"); drift(); };
   $("#intro-sound").onclick = () => { $("#b-sound").click(); $("#intro-sound").textContent = Storm.on ? "Silence the storm" : "Turn on the storm"; };
+  const root = document.documentElement, fsEl = () => document.fullscreenElement || document.webkitFullscreenElement;
+  if (document.fullscreenEnabled || document.webkitFullscreenEnabled) {
+    const fb = $("#intro-full"), sync = () => { fb.textContent = fsEl() ? "Leave fullscreen" : "Go fullscreen"; };
+    fb.hidden = false;
+    fb.onclick = () => { const p = fsEl() ? (document.exitFullscreen || document.webkitExitFullscreen).call(document) : (root.requestFullscreen || root.webkitRequestFullscreen).call(root); p && p.catch && p.catch(() => {}); };
+    addEventListener("fullscreenchange", sync); addEventListener("webkitfullscreenchange", sync);
+  }
   addEventListener("keydown", e => {
     if (e.target.closest("input,textarea")) return;
     if (e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
