@@ -99,7 +99,9 @@ const City3D = (typeof THREE === "undefined") ? null : (() => {
 
   /* ---------- terrain height (world units) ---------- */
   const HILLS = [[530, 640, 170, 4.2], [343, 330, 140, 3.2], [430, 120, 130, 3.6], [640, 390, 120, 2.6], [200, 300, 120, 1.6], [700, 700, 110, 2.2]];
-  const FLAT = [[514, 812, 125], [660, 985, 60], [350, 440, 42], [343, 292, 38], [705, 687, 50], [176, 612, 56]];
+  // the undercity shaft behind the Waterworks, on the harbor side of the river and clear of its banks (chart units; radius in world units)
+  const SHAFT = [228, 606], SHAFT_R = 8;
+  const FLAT = [[514, 812, 125], [660, 985, 60], [350, 440, 42], [343, 292, 38], [705, 687, 50], [...SHAFT, 56]];
   function upliftRaw(mx, my) {
     const inland = sample(masks.inland, mx, my);
     let u = 6.2 * smooth(.5, .97, inland);
@@ -142,7 +144,7 @@ const City3D = (typeof THREE === "undefined") ? null : (() => {
     const out = Math.max(0, -my - 60) + Math.max(0, mx - 1100) * .6 + Math.max(0, -mx - 260) * .18;
     h += Math.min(46, out * .05 * (0.6 + fbm(mx * .004, my * .004, 3))) * smooth(.4, .8, land);
     // the river: a bed below the water and banks that slope up to the city, not sheer cuts through the terraces
-    { const gap = riverGap(mx, my); if (gap < 40) { const bed = .4 - 3.8 * smooth(.5, -3, gap); h += (bed - h) * smooth(40, 1, gap); } }
+    { const gap = riverGap(mx, my); if (gap < 40) { const bed = .4 - 3.8 * smooth(.5, -3, gap); h += (bed - h) * smooth(40, 1, gap) * smooth(42, 54, Math.hypot(mx - SHAFT[0], my - SHAFT[1])); } } // level ground round the shaft's rim
     return h;
   }
   const heightAt = (x, z) => { const [mx, my] = toChart(x, z); return heightChart(mx, my); };
@@ -808,7 +810,7 @@ const City3D = (typeof THREE === "undefined") ? null : (() => {
       const lv = tier[0], rings = tier.slice(1), pts = ringPts(rings[0]); if (pts.length < 3) continue;
       const [cx, cy] = centroid(pts);
       if (DEBUG) { const why = excluded(cx, cy) ? 'excluded' : inSilverwall(cx, cy) ? 'silverwall' : nearPlace(pts) ? 'nearPlace' : null; const dn = nearestDistrict(cx, cy); const k = dn + ':' + (why || 'kept'); hooks.tierStats = hooks.tierStats || {}; hooks.tierStats[k] = (hooks.tierStats[k] || 0) + 1; }
-      if (excluded(cx, cy) || inSilverwall(cx, cy) || nearPlace(pts) || nearRiver(pts)) continue;
+      if (excluded(cx, cy) || inSilverwall(cx, cy) || nearPlace(pts) || nearRiver(pts) || pts.some(([x, y]) => Math.hypot(x - SHAFT[0], y - SHAFT[1]) < 46)) continue;
       let gr;
       if (lv === 1) gr = groundOf(pts);
       else {
@@ -865,7 +867,7 @@ const City3D = (typeof THREE === "undefined") ? null : (() => {
     const hp = [], hn = [], hc = []; const wallT = [0x8e7a5e, 0x9a8466, 0x7a6650, 0xa08c6a, 0x86705a], roofT = [0x6e3a26, 0x5a3424, 0x7a4a2c, 0x4a3a30, 0x8a5a34];
     const addH = (geo, color) => { const gg = geo.index ? geo.toNonIndexed() : geo; const P = gg.attributes.position.array, N = gg.attributes.normal.array; for (let i = 0; i < P.length; i += 3) { hp.push(P[i], P[i + 1], P[i + 2]); hn.push(N[i], N[i + 1], N[i + 2]); hc.push(color.r, color.g, color.b); } gg.dispose(); };
     for (const r of PLAN.human) {
-      const pts = ringPts(r); if (pts.length < 3) continue; if (pts.some(([x, y]) => Math.hypot(x - 176, y - 612) < 56)) continue; const [cx, cy] = centroid(pts); if (excluded(cx, cy) || inSilverwall(cx, cy) || nearRiver(pts)) continue;
+      const pts = ringPts(r); if (pts.length < 3) continue; if (pts.some(([x, y]) => Math.hypot(x - SHAFT[0], y - SHAFT[1]) < 56)) continue; const [cx, cy] = centroid(pts); if (excluded(cx, cy) || inSilverwall(cx, cy) || nearRiver(pts)) continue;
       const gr = groundOf(pts); if (gr.avg < .2) continue;
       const hh = .55 + hash(cx, cy) * .6, base = gr.lo - .3, sh = shapeOf([r]);
       const w1 = new THREE.ExtrudeGeometry(sh, { depth: gr.avg + hh - base, bevelEnabled: false }); w1.rotateX(-Math.PI / 2); w1.translate(0, base, 0); addH(w1, c.setHex(wallT[(hash(cy, cx) * 5) | 0]));
@@ -1221,7 +1223,6 @@ const City3D = (typeof THREE === "undefined") ? null : (() => {
 
 
   /* ---------- below: the undercity shaft and the drowned streets of the harbor ---------- */
-  const SHAFT = [176, 612], SHAFT_R = 8;
   function buildDepths() {
     exclusions.push([SHAFT[0], SHAFT[1], 52]);
     const [sx, sz] = toWorld(...SHAFT); const gy = Math.max(heightAt(sx, sz), .5);
@@ -1544,7 +1545,7 @@ const City3D = (typeof THREE === "undefined") ? null : (() => {
     hemi = new THREE.HemisphereLight(0x4a6a9a, 0x2a1c12, .62); scene.add(hemi);
     moonLight = new THREE.DirectionalLight(0x9fb5d8, .45); moonLight.position.set(60, 90, -70); scene.add(moonLight);
     flashLight = new THREE.DirectionalLight(0xc8d6ff, 0); flashLight.position.set(-50, 100, 40); scene.add(flashLight);
-    seed = 1337; sampleRoads(); buildMasks(); exclusions.push([176, 612, 56]);
+    seed = 1337; sampleRoads(); buildMasks(); exclusions.push([...SHAFT, 56]);
     buildSky(); buildWater(); buildTerrain();
     buildEmperor(); buildLighthouse(); buildTalon(); buildSpire(); buildPalace(); buildBazaar(); buildSilverwall(); buildDelera();
     buildFloaters(); buildRuins(); buildDistrictLife(); buildHeroes(); buildGiantCity(); buildRigging(); buildDensity(); buildDistant(); buildDepths(); buildKraken(); buildAtmosphere(); buildHouses(); buildWalkers(); buildJungle(); buildRain(); placeOpenFires();
